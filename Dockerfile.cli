@@ -1,0 +1,25 @@
+FROM golang:1.18.3-alpine3.16 AS builder
+
+WORKDIR /workspace
+
+COPY go.mod go.mod
+COPY go.sum go.sum
+RUN go mod download
+
+COPY cmd/cli cmd/cli
+COPY pkg/ pkg/
+
+RUN CGO_ENABLED=0 go build -a -o mariactl cmd/cli/main.go
+
+FROM alpine:3.16.3
+
+WORKDIR /
+
+COPY --from=builder /workspace/mariactl .
+COPY --from=builder /workspace/mariactl /usr/local/bin
+
+RUN apk add --update --no-cache mariadb-client mariadb-backup
+
+USER 65532:65532
+
+ENTRYPOINT ["/mariactl"]

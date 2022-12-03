@@ -28,3 +28,7 @@ test: manifests generate envtest ## Run tests.
 .PHONY: cover
 cover: test ## Run tests and generate coverage.
 	@go tool cover -html=cover.out -o=cover.html
+
+.PHONY: release
+release: goreleaer ## Test release locally.
+	$(GORELEASER)

@@ -13,9 +13,10 @@ COPY pkg/ pkg/
 
 RUN CGO_ENABLED=0 go build -a -o manager cmd/operator/main.go
 
-FROM alpine:3.16.0
+FROM alpine:3.16.3
 
 WORKDIR /
+
 COPY --from=builder /workspace/manager .
 USER 65532:65532
 

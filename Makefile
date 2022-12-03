@@ -18,7 +18,7 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 .PHONY: build
-build: op-build ## Build all.
+build: op-build cli-build ## Build all.
 
 ##@ Operator
 
@@ -40,6 +40,27 @@ op-docker-build: ## Build docker image with the manager.
 .PHONY: op-docker-push
 op-docker-push: ## Push docker image with the manager.
 	docker push ${OP_IMG}
+
+##@ CLI
+
+.PHONY: cli-run
+cli-run: ## Run a CLI from your host.
+	go run ./cmd/cli/main.go
+
+.PHONY: cli-build
+cli-build: generate ## Build CLI binary.
+	go build -o bin/mariactl cmd/cli/main.go
+
+# Image URL to use all building/pushing image targets
+CLI_IMG ?= mmontes11/mariactl:latest
+
+.PHONY: cli-docker-build
+cli-docker-build: ## Build docker image with the CLI.
+	docker build -f Dockerfile.cli -t ${CLI_IMG} .
+
+.PHONY: cli-docker-push
+cli-docker-push: ## Push docker image with the CLI.
+	docker push ${CLI_IMG}
 
 include make/deploy.mk
 include make/dev.mk

@@ -10,3 +10,15 @@ builds:
     goarch:
       - amd64
       - arm64
+
+  - id: mariactl
+    main: cmd/cli/main.go
+    binary: "mariactl_{{ .Version }}_{{ .Arch }}"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
