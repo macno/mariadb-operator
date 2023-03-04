@@ -18,11 +18,14 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type=="Ready")].status
-      name: Ready
+    - jsonPath: .status.conditions[?(@.type=="Complete")].status
+      name: Complete
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].message
       name: Status
+      type: string
+    - jsonPath: .spec.mariaDbRef.name
+      name: MariaDB
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age

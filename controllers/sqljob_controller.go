@@ -18,21 +18,29 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"time"
 
+	"github.com/hashicorp/go-multierror"
+	"github.com/mmontes11/mariadb-operator/api/v1alpha1"
+	mariadbv1alpha1 "github.com/mmontes11/mariadb-operator/api/v1alpha1"
+	"github.com/mmontes11/mariadb-operator/pkg/builder"
+	"github.com/mmontes11/mariadb-operator/pkg/conditions"
+	"github.com/mmontes11/mariadb-operator/pkg/refresolver"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	mariadbv1alpha1 "github.com/mmontes11/mariadb-operator/api/v1alpha1"
 )
 
 // SqlJobReconciler reconciles a SqlJob object
 type SqlJobReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme            *runtime.Scheme
+	Builder           *builder.Builder
+	RefResolver       *refresolver.RefResolver
+	ConditionComplete *conditions.Complete
 }
 
 //+kubebuilder:rbac:groups=mariadb.mmontes.io,resources=sqljobs,verbs=get;list;watch;create;update;patch;delete
@@ -44,11 +52,55 @@ type SqlJobReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *SqlJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	var sqlJob mariadbv1alpha1.SqlJob
+	if err := r.Get(ctx, req.NamespacedName, &sqlJob); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-	// TODO(user): your logic here
+	ok, result, err := r.waitForDependencies(ctx, &sqlJob)
+	if !ok {
+		return result, fmt.Errorf("error waiting for dependencies: %v", err)
+	}
+
+	mariaDb, err := r.RefResolver.MariaDB(ctx, &sqlJob.Spec.MariaDBRef, sqlJob.Namespace)
+	if err != nil {
+		var mariaDbErr *multierror.Error
+		mariaDbErr = multierror.Append(mariaDbErr, err)
+
+		err = r.patchStatus(ctx, &sqlJob, r.ConditionComplete.RefResolverPatcher(err, mariaDb))
+		mariaDbErr = multierror.Append(mariaDbErr, err)
+
+		return ctrl.Result{}, fmt.Errorf("error getting MariaDB: %v", mariaDbErr)
+	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *SqlJobReconciler) waitForDependencies(ctx context.Context, sqlJob *v1alpha1.SqlJob) (bool, ctrl.Result, error) {
+	if sqlJob.Spec.DependsOn == nil {
+		return true, ctrl.Result{}, nil
+	}
+	for _, dep := range sqlJob.Spec.DependsOn {
+		sqlJobDep, err := r.RefResolver.SqlJob(ctx, &dep, sqlJob.Namespace)
+		if err != nil {
+			return false, ctrl.Result{}, fmt.Errorf("error getting SqlJob dependency: %v", err)
+		}
+		if !sqlJobDep.IsReady() {
+			return false, ctrl.Result{RequeueAfter: 3 * time.Second}, nil
+		}
+	}
+	return true, ctrl.Result{}, nil
+}
+
+func (r *SqlJobReconciler) patchStatus(ctx context.Context, sqlJob *mariadbv1alpha1.SqlJob,
+	patcher conditions.Patcher) error {
+	patch := client.MergeFrom(sqlJob.DeepCopy())
+	patcher(&sqlJob.Status)
+
+	if err := r.Client.Status().Patch(ctx, sqlJob, patch); err != nil {
+		return fmt.Errorf("error patching SqlJob status: %v", err)
+	}
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

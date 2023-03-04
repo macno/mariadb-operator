@@ -156,8 +156,11 @@ var rootCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		if err = (&controllers.SqlJobReconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
+			Client:            mgr.GetClient(),
+			Scheme:            mgr.GetScheme(),
+			Builder:           builder,
+			RefResolver:       refResolver,
+			ConditionComplete: conditionComplete,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SqlJob")
 			os.Exit(1)
