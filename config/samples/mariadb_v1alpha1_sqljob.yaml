@@ -1,0 +1,12 @@
+apiVersion: mariadb.mmontes.io/v1alpha1
+kind: SqlJob
+metadata:
+  labels:
+    app.kubernetes.io/name: sqljob
+    app.kubernetes.io/instance: sqljob-sample
+    app.kubernetes.io/part-of: mariadb-operator
+    app.kuberentes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: mariadb-operator
+  name: sqljob-sample
+spec:
+  # TODO(user): Add fields here

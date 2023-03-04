@@ -39,12 +39,12 @@ var _ webhook.Validator = &Connection{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Connection) ValidateCreate() error {
-	return r.validateHealthCheck()
+	return r.Spec.validateHealthCheck()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *Connection) ValidateUpdate(old runtime.Object) error {
-	if err := r.validateHealthCheck(); err != nil {
+	if err := r.Spec.validateHealthCheck(); err != nil {
 		return err
 	}
 	return inmutableWebhook.ValidateUpdate(r, old.(*Connection))
@@ -55,26 +55,26 @@ func (r *Connection) ValidateDelete() error {
 	return nil
 }
 
-func (r *Connection) validateHealthCheck() error {
-	if r.Spec.HealthCheck == nil {
+func (r *ConnectionSpec) validateHealthCheck() error {
+	if r.HealthCheck == nil {
 		return nil
 	}
-	if r.Spec.HealthCheck.Interval != nil {
-		duration := r.Spec.HealthCheck.Interval.Duration.String()
+	if r.HealthCheck.Interval != nil {
+		duration := r.HealthCheck.Interval.Duration.String()
 		if _, err := time.ParseDuration(duration); err != nil {
 			return field.Invalid(
 				field.NewPath("spec").Child("healthCheck").Child("interval"),
-				r.Spec.HealthCheck.Interval,
+				r.HealthCheck.Interval,
 				fmt.Sprintf("invalid duration: '%s'", duration),
 			)
 		}
 	}
-	if r.Spec.HealthCheck.RetryInterval != nil {
-		duration := r.Spec.HealthCheck.RetryInterval.Duration.String()
+	if r.HealthCheck.RetryInterval != nil {
+		duration := r.HealthCheck.RetryInterval.Duration.String()
 		if _, err := time.ParseDuration(duration); err != nil {
 			return field.Invalid(
 				field.NewPath("spec").Child("healthCheck").Child("retryInterval"),
-				r.Spec.HealthCheck.RetryInterval,
+				r.HealthCheck.RetryInterval,
 				fmt.Sprintf("invalid duration: '%s'", duration),
 			)
 		}
